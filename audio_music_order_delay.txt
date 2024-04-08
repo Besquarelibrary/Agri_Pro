@@ -1,0 +1,88 @@
+#include "Arduino.h"
+#include "DFRobotDFPlayerMini.h"
+extern "C" {
+  #include "esp32-hal-gpio.h"
+}
+#include <SoftwareSerial.h>
+
+DFRobotDFPlayerMini mp3;
+
+#ifndef D5
+  #if defined(ESP8266)
+    #define D5 (14)
+    #define D6 (12)
+    #define D7 (13)
+    #define D8 (15)
+    #define TX (1)
+  #elif defined(ESP32)
+    #define D5 (27)
+    #define D6 (33)
+    #define D7 (23)
+    #define D8 (5)
+    #define TX (1)
+  #endif
+#endif
+
+#ifdef ESP32
+  #define BAUD_RATE 9600
+#else
+  #define BAUD_RATE 9600
+#endif
+
+SoftwareSerial swSer;
+
+bool isPlaying = false; // Track if the DFPlayer is currently playing
+
+void printDetail(uint8_t type, int value);
+
+void setup() {
+  swSer.begin(9600, SWSERIAL_8N1, D5, D6, false, 95, 11);
+  Serial.begin(115200);
+  delay(100);
+
+  Serial.println();
+  Serial.println(F("DFRobot DFPlayer Mini Demo"));
+  Serial.println(F("Initializing DFPlayer ... (May take 3~5 seconds)"));
+
+  mp3.setTimeOut(1000);
+  if (!mp3.begin(swSer, false)) {
+    Serial.println(F("Unable to begin:"));
+    Serial.println(F("1. Please recheck the connection!"));
+    Serial.println(F("2. Please insert the SD card!"));
+    while (true);
+  }
+  Serial.println(F("DFPlayer Mini online."));
+
+  mp3.setTimeOut(500); // Set serial communication timeout to 500ms
+
+  // Set volume
+  mp3.volume(20);
+
+  // Set EQ
+  mp3.EQ(DFPLAYER_EQ_NORMAL);
+
+  // Set output device to SD card
+  mp3.outputDevice(DFPLAYER_DEVICE_SD);
+
+  // Print information about files
+  Serial.println(mp3.readFileCounts()); // Read all file counts in SD card
+  Serial.println(mp3.readFileCountsInFolder(3)); // Read file counts in folder SD:/03
+
+  // Play all MP3 files in the SD card
+  for (int i = 1; i <= mp3.readFileCounts(); i++) {
+    mp3.play(i);
+    isPlaying = true; // Set the flag indicating playback has started
+    while (isPlaying) {
+      // Check if playback has finished
+      if (!mp3.available()) {
+        isPlaying = false;
+      }
+      delay(20000);
+    }
+    delay(500); // Delay between each file (adjust as needed)
+  }
+}
+
+void loop() {
+  // Loop function left empty as we're handling MP3 playback in the setup() function.
+}
